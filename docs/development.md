@@ -72,6 +72,8 @@ The AppImage is a snapshot, so rebuild it to include code changes. The build dow
 | `visual_control/midi.py` | MIDI input and capture for the setup window |
 | `visual_control/effects.py` | The list of effects, independent of any controller |
 | `visual_control/config_window.py` | The setup window |
+| `visual_control/midi_file.py` | Reading a MIDI file's notes, and playing one channel on a loop |
+| `visual_control/midi_file_window.py` | The panel for choosing a channel and assigning effects to its notes |
 | `visual_control/controllers/` | Controller file loading and the built-in setups |
 | `reference/controller_maps/` | The older Python maps of each controller's controls, kept for reference |
 
@@ -98,6 +100,14 @@ Device -> MidiInput._on_message (MIDI thread) -> effect_changed signal
 ```
 
 Qt queues the signal across threads. MIDI errors only ever mean "not connected" and are retried, so MIDI can't take the visuals down.
+
+A MIDI file takes a shorter path, because it plays on the GUI thread:
+
+```text
+MidiFilePlayer timer -> note_played signal -> MainWindow._on_midi_file_note -> MediaView
+```
+
+The player waits on a single-shot timer for the next note. Each note's time counts from the start of the current loop, rather than from the previous note, so timer delays never build up into drift.
 
 ## Add an effect
 

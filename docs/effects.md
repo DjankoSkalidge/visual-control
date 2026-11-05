@@ -90,7 +90,7 @@ Each press plays the animation once, and another press restarts it. Different an
 
 Every press plays at full strength, however hard the pad is hit.
 
-**Flash:** rapid hits make a strobe, and nothing limits how fast it can go. Take care if an audience could include photosensitive people.
+**Flash:** rapid hits make a strobe, and nothing limits how fast it can go. A [MIDI file](midi-files.md) makes this easy to do by accident, for example with flash on the hi-hats. Take care if an audience could include photosensitive people.
 
 **Glitch burst:** the pattern changes several times during a burst and is different on every press.
 

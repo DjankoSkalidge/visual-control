@@ -33,7 +33,7 @@ ERROR_STYLE = "color: #c0392b;"
 ROOM_AROUND_EFFECTS = 240
 
 
-def _label_for(effect: Effect) -> str:
+def label_for(effect: Effect) -> str:
     return effect.name.replace("_", " ").capitalize().replace("Rgb", "RGB")
 
 
@@ -76,7 +76,7 @@ class ControllerConfigDialog(QDialog):
             clear.clicked.connect(lambda _=False, e=effect: self._clear(e))
             note = QLabel()
             note.setStyleSheet(NOTE_STYLE)
-            grid.addWidget(QLabel(_label_for(effect)), row, 0)
+            grid.addWidget(QLabel(label_for(effect)), row, 0)
             grid.addWidget(assign, row, 1)
             grid.addWidget(clear, row, 2)
             grid.addWidget(note, row, 3)
@@ -193,7 +193,7 @@ class ControllerConfigDialog(QDialog):
         for other, assigned in list(self._assignments.items()):
             if assigned == control and other is not effect:
                 del self._assignments[other]
-                self._row_notes[effect].setText(f"Moved from {_label_for(other)}")
+                self._row_notes[effect].setText(f"Moved from {label_for(other)}")
         self._assignments[effect] = control
         self._update_rows()
 

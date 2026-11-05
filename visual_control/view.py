@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QSurfaceFormat
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
-from .effects import Effect
+from .effects import REMOVE_CHANNEL_EFFECTS, Effect
 from .media import ImageSource, VideoSource
 
 log = logging.getLogger(__name__)
@@ -486,11 +486,23 @@ class MediaView(QOpenGLWidget):
         self._channels[channel] = 1.0 - self._channels[channel]
         self.update()
 
+    def turn_off_toggles(self, effects: set[Effect]) -> None:
+        """Turn off any of these toggle effects that are on. Others are left alone."""
+        if Effect.BLACK_AND_WHITE in effects:
+            self._black_and_white = False
+        for channel, effect in enumerate(REMOVE_CHANNEL_EFFECTS):
+            if effect in effects:
+                self._channels[channel] = 1.0
+        self.update()
+
     def toggle_pause(self) -> bool | None:
         """Pause or resume, and return whether it's now paused, or None if that doesn't apply."""
         if self._source is None:
             return None
         return self._source.toggle_pause(time.monotonic())
+
+    def is_paused(self) -> bool:
+        return self._source is not None and self._source.paused
 
     def reset_effects(self) -> None:
         """Turn every effect off, leaving the original picture."""

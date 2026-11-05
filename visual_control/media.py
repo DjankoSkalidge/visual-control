@@ -51,6 +51,10 @@ class ImageSource:
         pixels, self._pixels = self._pixels, None
         return pixels
 
+    @property
+    def paused(self) -> bool:
+        return False
+
     def toggle_pause(self, now: float) -> bool | None:
         return None  # A still image has nothing to pause.
 
@@ -109,6 +113,10 @@ class VideoSource:
             latest = self._pending.pixels
             self._last_shown_time = self._pending.time
             self._pending = None
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
 
     def toggle_pause(self, now: float) -> bool:
         """Pause or resume, and return whether it's now paused.

@@ -15,9 +15,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    files = app.arguments()[1:]
-    if files:
-        window.load(files[0])
+    window.open_files(app.arguments()[1:])
     return app.exec()
 
 
