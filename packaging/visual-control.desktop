@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Visual Control
+Comment=Control visual effects on images and videos with a MIDI controller
+Exec=visual-control %f
+Icon=visual-control
+Terminal=false
+Categories=AudioVideo;Video;

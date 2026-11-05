@@ -1,0 +1,20 @@
+# M-Audio Oxygen
+name: Oxygen
+port: Oxygen  # Text to look for in the MIDI port name.
+
+# Effect: control number
+effects:
+  blur: 22                # Rotary encoder C10
+  pixelate: 23            # Rotary encoder C11
+  saturation_red: 20      # Slider C1
+  saturation_yellow: 21   # Slider C2
+  saturation_green: 71    # Slider C3
+  saturation_cyan: 72     # Slider C4
+  saturation_blue: 25     # Slider C5
+  saturation_magenta: 73  # Slider C6
+  rgb_shift_red_horizontal: 61    # Rotary encoder C12
+  rgb_shift_red_vertical: 24      # Rotary encoder C13
+  rgb_shift_green_horizontal: 26  # Rotary encoder C14
+  rgb_shift_green_vertical: 27    # Rotary encoder C15
+  rgb_shift_blue_horizontal: 62   # Rotary encoder C16
+  rgb_shift_blue_vertical: 95     # Rotary encoder C17

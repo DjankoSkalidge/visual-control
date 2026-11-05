@@ -1,0 +1,20 @@
+# Akai MIDI Mix
+name: Akai MIDI Mix
+port: MIDI Mix  # Text to look for in the MIDI port name.
+
+# Effect: control number
+effects:
+  blur: 16                # Rotary encoder RE_11
+  pixelate: 20            # Rotary encoder RE_12
+  saturation_red: 19      # Slider 1
+  saturation_yellow: 23   # Slider 2
+  saturation_green: 27    # Slider 3
+  saturation_cyan: 31     # Slider 4
+  saturation_blue: 49     # Slider 5
+  saturation_magenta: 53  # Slider 6
+  rgb_shift_red_horizontal: 24    # Rotary encoder RE_13
+  rgb_shift_red_vertical: 28      # Rotary encoder RE_14
+  rgb_shift_green_horizontal: 46  # Rotary encoder RE_15
+  rgb_shift_green_vertical: 50    # Rotary encoder RE_16
+  rgb_shift_blue_horizontal: 54   # Rotary encoder RE_17
+  rgb_shift_blue_vertical: 58     # Rotary encoder RE_18
