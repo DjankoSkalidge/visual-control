@@ -408,7 +408,12 @@ class StutterInRealPlaybackTests(GuiTestCase):
             check=True,
         )
         self.window.load(str(path))
-        QTest.qWait(500)
+        # Stutter needs frames to repeat. A fixed wait was sometimes too short on
+        # a busy machine, so wait until a few have been shown, for up to 5 s.
+        for _ in range(100):
+            if len(self.window._view._recent_frames) >= 4:
+                break
+            QTest.qWait(50)
 
     def test_stutters_then_plays_on(self):
         self.play_video()
