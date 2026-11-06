@@ -218,6 +218,152 @@ class MirrorBurstTests(HeldAnimationCase):
         self.assertGreater(self.at(Effect.MIRROR_BURST, 0.25).min(), 190)
 
 
+def colorful() -> np.ndarray:
+    """Strong, smooth colors, so hue changes show clearly: red left to right, blue top to bottom."""
+    y, x = np.indices((SIZE, SIZE))
+    return np.dstack([x * 255 // SIZE, np.full_like(x, 60), y * 255 // SIZE]).astype(np.uint8)
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class InvertFlashTests(HeldAnimationCase):
+    def test_starts_as_the_negative_and_fades_back(self):
+        self.show_image(photo_like())
+        original = self.picture()
+        self.assertLess(difference(self.at(Effect.INVERT_FLASH, 0.001), 255 - original), 1.5)
+        self.assertLess(difference(self.at(Effect.INVERT_FLASH, 0.99), original), 0.5)
+
+    def test_inverts_after_black_and_white(self):
+        self.show_image(photo_like())
+        self.window._view.toggle_black_and_white()
+        inverted = self.at(Effect.INVERT_FLASH, 0.001)
+        self.assertLess(np.ptp(inverted, axis=2).max(), 2)
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class StrobeSliceTests(HeldAnimationCase):
+    def test_bands_move_in_opposite_directions_then_return(self):
+        self.show_image(photo_like())
+        original = self.picture()
+        sliced = self.at(Effect.STROBE_SLICE, 0.01)
+        height = sliced.shape[0]
+        # Red runs left to right, so a band moved one way gets redder in the middle.
+        middle = sliced.shape[1] // 2
+        first = sliced[height // 16, middle, 0] - original[height // 16, middle, 0]
+        second = sliced[3 * height // 16, middle, 0] - original[3 * height // 16, middle, 0]
+        self.assertGreater(abs(first), 15)
+        self.assertLess(first * second, 0)
+        self.assertLess(difference(self.at(Effect.STROBE_SLICE, 0.99), original), 0.5)
+
+    def test_nothing_moves_up_or_down(self):
+        y, _ = np.indices((SIZE, SIZE))
+        self.show_image(np.dstack([y * 255 // SIZE] * 3).astype(np.uint8))
+        original = self.picture()
+        self.assertLess(difference(self.at(Effect.STROBE_SLICE, 0.01), original), 0.5)
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class KaleidoscopePopTests(HeldAnimationCase):
+    def test_folds_into_a_symmetrical_pattern_and_unfolds(self):
+        self.show_image(photo_like())
+        original = self.picture()
+        folded = self.at(Effect.KALEIDOSCOPE_POP, 0.4)
+        self.assertGreater(difference(original, original[::-1, ::-1]), 30)
+        self.assertLess(difference(folded, folded[::-1, ::-1]), 15)
+        self.assertLess(difference(self.at(Effect.KALEIDOSCOPE_POP, 0.001), original), 0.5)
+        self.assertLess(difference(self.at(Effect.KALEIDOSCOPE_POP, 0.999), original), 0.5)
+
+    def test_differs_from_a_mirror_burst(self):
+        self.show_image(photo_like())
+        self.assertGreater(
+            difference(self.at(Effect.KALEIDOSCOPE_POP, 0.4), self.at(Effect.MIRROR_BURST, 0.25)), 5
+        )
+
+    def test_works_on_a_wide_picture_without_black_gaps(self):
+        self.show_image(np.full((200, 800, 3), 200, dtype=np.uint8))
+        self.assertGreater(self.at(Effect.KALEIDOSCOPE_POP, 0.4).min(), 190)
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class TunnelZoomTests(HeldAnimationCase):
+    def test_puts_a_smaller_copy_in_the_middle_and_fades(self):
+        # A white frame around a black picture: a smaller copy shows a white ring inside.
+        pixels = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+        pixels[:20], pixels[-20:], pixels[:, :20], pixels[:, -20:] = 255, 255, 255, 255
+        self.show_image(pixels)
+        original = self.picture()
+        tunnel = self.at(Effect.TUNNEL_ZOOM, 0.01)
+        inside = slice(30, -30)
+        self.assertLess(original[inside, inside].max(), 1)
+        self.assertGreater(tunnel[inside, inside].max(), 100)
+        self.assertLess(difference(self.at(Effect.TUNNEL_ZOOM, 0.999), original), 0.5)
+
+    def test_the_copies_shrink_towards_the_center(self):
+        pixels = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+        pixels[:20], pixels[-20:], pixels[:, :20], pixels[:, -20:] = 255, 255, 255, 255
+        self.show_image(pixels)
+
+        def first_ring(picture):
+            row = picture[picture.shape[0] // 2, 30 : picture.shape[1] // 2, 0]
+            return 30 + int(np.argmax(row > 50))
+
+        self.assertGreater(first_ring(self.at(Effect.TUNNEL_ZOOM, 0.6)),
+                           first_ring(self.at(Effect.TUNNEL_ZOOM, 0.01)))
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class VignettePulseTests(HeldAnimationCase):
+    def test_darkens_the_edges_but_not_the_middle(self):
+        self.show_image(np.full((SIZE, SIZE, 3), 200, dtype=np.uint8))
+        darkened = self.at(Effect.VIGNETTE_PULSE, 0.001)
+        height, width, _ = darkened.shape
+        self.assertGreater(darkened[height // 2, width // 2].min(), 195)
+        self.assertLess(darkened[2, 2].max(), 60)
+        self.assertLess(difference(self.at(Effect.VIGNETTE_PULSE, 0.99), self.picture()), 0.5)
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class SpinKickTests(HeldAnimationCase):
+    def test_turns_one_way_then_the_other_and_settles(self):
+        self.show_image(photo_like())
+        original = self.picture()
+        # Green runs top to bottom, so turning tilts it: the left and right edges differ.
+        def tilt(picture):
+            return picture[:, 5, 1].mean() - picture[:, -6, 1].mean()
+
+        self.assertLess(abs(tilt(original)), 2)
+        first, second = tilt(self.at(Effect.SPIN_KICK, 0.15)), tilt(self.at(Effect.SPIN_KICK, 0.5))
+        self.assertGreater(abs(first), 5)
+        self.assertLess(first * second, 0)
+        self.assertLess(difference(self.at(Effect.SPIN_KICK, 0.999), original), 0.5)
+
+    def test_never_shows_past_the_corners(self):
+        # Reading past an edge repeats its last pixels. With a black border, any
+        # reading past the edge would show black in the corners.
+        pixels = np.full((200, 400, 3), 200, dtype=np.uint8)
+        self.show_image(pixels)
+        for progress in np.linspace(0.02, 0.6, 10):
+            self.assertGreater(self.at(Effect.SPIN_KICK, float(progress)).min(), 190, progress)
+
+
+@unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
+class HueSpinTests(HeldAnimationCase):
+    def test_changes_colors_and_comes_back_round(self):
+        self.show_image(colorful())
+        original = self.picture()
+        self.assertGreater(difference(self.at(Effect.HUE_SPIN, 0.33), original), 30)
+        self.assertLess(difference(self.at(Effect.HUE_SPIN, 0.999), original), 1.5)
+
+    def test_leaves_greys_alone(self):
+        self.show_image(grey_waves())
+        original = self.picture()
+        self.assertLess(difference(self.at(Effect.HUE_SPIN, 0.4), original), 1.5)
+
+    def test_cannot_bring_back_a_removed_color(self):
+        self.show_image(colorful())
+        self.window._view.toggle_channel(0)
+        self.assertLess(self.at(Effect.HUE_SPIN, 0.33)[:, :, 0].max(), 1)
+
+
 @unittest.skipUnless(os.environ.get("DISPLAY"), "needs a display")
 class PressTests(GuiTestCase):
     def press(self, effect: Effect) -> None:

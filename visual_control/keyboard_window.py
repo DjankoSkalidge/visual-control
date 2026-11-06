@@ -27,13 +27,14 @@ from .keyboard import (
 )
 
 LISTENING = "Press a key..."
+COLUMN_WIDTH = 5  # Grid columns per column of effects: four, then a gap.
 
 
 class KeyboardConfigDialog(QDialog):
     def __init__(self, effects: dict[Effect, int], path: Path, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Configure keyboard")
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(720)
         self._path = path
         self._assignments: dict[Effect, int] = dict(effects)
         self._listening_for: Effect | None = None
@@ -41,9 +42,12 @@ class KeyboardConfigDialog(QDialog):
         self._assign_buttons: dict[Effect, QPushButton] = {}
         self._clear_buttons: dict[Effect, QPushButton] = {}
         self._row_notes: dict[Effect, QLabel] = {}
+        # Two columns of effects, so the window isn't taller than a screen.
         grid = QGridLayout()
-        grid.setColumnStretch(1, 1)
-        for row, effect in enumerate(KEYBOARD_EFFECTS):
+        grid.setHorizontalSpacing(8)
+        rows = (len(KEYBOARD_EFFECTS) + 1) // 2
+        for index, effect in enumerate(KEYBOARD_EFFECTS):
+            row, first = index % rows, (index // rows) * COLUMN_WIDTH
             assign = QPushButton(NOT_ASSIGNED)
             assign.setAutoDefault(False)
             assign.clicked.connect(lambda _=False, e=effect: self._toggle_listening(e))
@@ -52,10 +56,10 @@ class KeyboardConfigDialog(QDialog):
             clear.clicked.connect(lambda _=False, e=effect: self._clear(e))
             note = QLabel()
             note.setStyleSheet(NOTE_STYLE)
-            grid.addWidget(QLabel(label_for(effect)), row, 0)
-            grid.addWidget(assign, row, 1)
-            grid.addWidget(clear, row, 2)
-            grid.addWidget(note, row, 3)
+            grid.addWidget(QLabel(label_for(effect)), row, first)
+            grid.addWidget(assign, row, first + 1)
+            grid.addWidget(clear, row, first + 2)
+            grid.addWidget(note, row, first + 3)
             self._assign_buttons[effect] = assign
             self._clear_buttons[effect] = clear
             self._row_notes[effect] = note
@@ -77,6 +81,10 @@ class KeyboardConfigDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel("Click an effect's button, then press a key."))
+        # The key buttons take up any spare width, and a gap separates the columns.
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(COLUMN_WIDTH + 1, 1)
+        grid.setColumnMinimumWidth(COLUMN_WIDTH - 1, 24)
         layout.addLayout(grid)
         layout.addWidget(self._error)
         layout.addLayout(buttons)

@@ -71,6 +71,14 @@ class KeyboardWindowTests(GuiTestCase):
         self.assertNotIn(Effect.BLUR, dialog._assign_buttons)
         self.assertNotIn(Effect.PLAYBACK_SPEED, dialog._assign_buttons)
 
+    def test_effects_are_in_two_columns_that_fit_on_a_1080p_screen(self):
+        dialog = self.open_dialog()
+        buttons = dialog._assign_buttons
+        lefts = {button.x() for button in buttons.values()}
+        self.assertEqual(len(lefts), 2)
+        self.assertLessEqual(dialog.frameGeometry().height(), 1080)
+        self.assertLessEqual(dialog.frameGeometry().width(), 1920)
+
     # Assigning keys
 
     def test_clicking_then_pressing_a_key_assigns_it(self):

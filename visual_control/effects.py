@@ -27,6 +27,13 @@ class Effect(Enum):
     SHAKE = auto()
     COLOR_SHOCKWAVE = auto()
     MIRROR_BURST = auto()
+    INVERT_FLASH = auto()
+    STROBE_SLICE = auto()
+    KALEIDOSCOPE_POP = auto()
+    TUNNEL_ZOOM = auto()
+    VIGNETTE_PULSE = auto()
+    SPIN_KICK = auto()
+    HUE_SPIN = auto()
     STUTTER = auto()
     BLACK_AND_WHITE = auto()
     REMOVE_RED = auto()
@@ -45,6 +52,13 @@ PRESS_EFFECTS = frozenset({
     Effect.SHAKE,
     Effect.COLOR_SHOCKWAVE,
     Effect.MIRROR_BURST,
+    Effect.INVERT_FLASH,
+    Effect.STROBE_SLICE,
+    Effect.KALEIDOSCOPE_POP,
+    Effect.TUNNEL_ZOOM,
+    Effect.VIGNETTE_PULSE,
+    Effect.SPIN_KICK,
+    Effect.HUE_SPIN,
     Effect.STUTTER,
     Effect.BLACK_AND_WHITE,
     Effect.REMOVE_RED,

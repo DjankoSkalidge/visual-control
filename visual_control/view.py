@@ -49,6 +49,13 @@ ANIMATIONS = {
     Effect.SHAKE: ("shake_progress", 0.4),
     Effect.COLOR_SHOCKWAVE: ("shockwave_progress", 0.5),
     Effect.MIRROR_BURST: ("mirror_progress", 0.4),
+    Effect.INVERT_FLASH: ("invert_progress", 0.3),
+    Effect.STROBE_SLICE: ("slice_progress", 0.35),
+    Effect.KALEIDOSCOPE_POP: ("kaleidoscope_progress", 0.6),
+    Effect.TUNNEL_ZOOM: ("tunnel_progress", 0.5),
+    Effect.VIGNETTE_PULSE: ("vignette_progress", 0.4),
+    Effect.SPIN_KICK: ("spin_progress", 0.4),
+    Effect.HUE_SPIN: ("hue_progress", 0.5),
 }
 
 # A stutter repeats the most recent frames, cycling through them quickly.
@@ -154,9 +161,10 @@ void main() {
 
 # Draws to the screen. The animations that move the picture change where it's read
 # from, on top of everything else. Then, if pixelating, it averages over blocks, which
-# stay crisp whatever the earlier effects did. Removing color channels comes next, and
-# black and white after that, so that no earlier effect can bring color back. A flash
-# comes last, because it lights up the finished picture.
+# stay crisp whatever the earlier effects did. A tunnel zoom layers smaller copies on
+# top. Hue spin, removing color channels and black and white come next, in that order,
+# so that no earlier effect can bring color back. The vignette, inverting and a flash
+# come last, because they act on the finished picture.
 #
 # Each animation has a progress value, where 0.0 is off and it ends just before 1.0.
 # The ripple is a short train of waves whose center travels from the middle of the
@@ -173,6 +181,13 @@ uniform float flash_progress;
 uniform float shake_progress;
 uniform float shockwave_progress;
 uniform float mirror_progress;
+uniform float invert_progress;
+uniform float slice_progress;
+uniform float kaleidoscope_progress;
+uniform float tunnel_progress;
+uniform float vignette_progress;
+uniform float spin_progress;
+uniform float hue_progress;
 uniform vec2 media_shape;  // The picture's size, divided by its shorter side.
 uniform vec3 channels;  // 1.0 keeps a color channel, and 0.0 removes it.
 uniform bool black_and_white;
@@ -191,6 +206,14 @@ const float SHAKE_SIZE = 0.03;
 const float SHOCKWAVE_SPLIT = 0.06;
 const float SHOCKWAVE_WIDTH = 0.2;
 const float MIRROR_WEDGES = 6.0;
+const float SLICE_BANDS = 8.0;
+const float SLICE_SHIFT = 0.12;
+const float KALEIDOSCOPE_WEDGES = 8.0;
+const float KALEIDOSCOPE_ZOOM = 0.3;  // How far it zooms in while folded.
+const int TUNNEL_COPIES = 3;
+const float TUNNEL_SPACING = 1.7;  // Each copy is this many times smaller than the last.
+const float VIGNETTE_DARKNESS = 0.85;
+const float SPIN_ANGLE = 0.12;  // In radians, about 7 degrees.
 const vec3 BRIGHTNESS_WEIGHTS = vec3(0.2126, 0.7152, 0.0722);
 
 vec2 rippled(vec2 position) {
@@ -226,6 +249,53 @@ vec2 mirrored(vec2 position) {
     // Wedges can reach past the picture's sides, so reflect them back in.
     folded = 1.0 - abs(mod(folded, 2.0) - 1.0);
     return mix(position, folded, 1.0 - smoothstep(0.5, 1.0, mirror_progress));
+}
+
+// Like the mirror burst, but with eight turning wedges and a zoom in, folding in
+// quickly and unfolding again.
+vec2 kaleidoscoped(vec2 position) {
+    vec2 from_center = (position - 0.5) * media_shape;
+    float distance_out = length(from_center);
+    if (kaleidoscope_progress == 0.0 || distance_out == 0.0) {
+        return position;
+    }
+    float amount = smoothstep(0.0, 0.2, kaleidoscope_progress)
+        * (1.0 - smoothstep(0.6, 1.0, kaleidoscope_progress));
+    float wedge = TAU / KALEIDOSCOPE_WEDGES;
+    float turned = atan(from_center.y, from_center.x) + kaleidoscope_progress * wedge;
+    float angle = abs(mod(turned, wedge) - wedge * 0.5);
+    float reach = distance_out * (1.0 - KALEIDOSCOPE_ZOOM * amount);
+    vec2 folded = reach * vec2(cos(angle), sin(angle)) / media_shape + 0.5;
+    folded = 1.0 - abs(mod(folded, 2.0) - 1.0);
+    return mix(position, folded, amount);
+}
+
+// Turns a little, swings back past the start, and settles, like a spring. It zooms in
+// by just enough that the corners of the turned picture never show.
+vec2 spun(vec2 position) {
+    if (spin_progress == 0.0) {
+        return position;
+    }
+    float angle = SPIN_ANGLE * sin(spin_progress * TAU * 1.5) * pow(1.0 - spin_progress, 2.0);
+    float cover = abs(cos(angle))
+        + abs(sin(angle)) * max(media_shape.x / media_shape.y, media_shape.y / media_shape.x);
+    vec2 from_center = (position - 0.5) * media_shape;
+    float c = cos(angle);
+    float s = sin(angle);
+    vec2 turned = vec2(c * from_center.x - s * from_center.y, s * from_center.x + c * from_center.y);
+    return turned / cover / media_shape + 0.5;
+}
+
+// Cuts the picture into bands that jump sideways, every other one the opposite
+// way, then slide back. What slides off one side comes back on the other.
+vec2 sliced(vec2 position) {
+    if (slice_progress == 0.0) {
+        return position;
+    }
+    float band = floor(position.y * SLICE_BANDS);
+    float direction = mod(band, 2.0) == 0.0 ? 1.0 : -1.0;
+    float shift = direction * SLICE_SHIFT * pow(1.0 - slice_progress, 2.0);
+    return vec2(fract(position.x + shift), position.y);
 }
 
 vec2 zoomed(vec2 position) {
@@ -294,16 +364,57 @@ vec3 pixelated(vec2 read_at) {
     return sum / float(SAMPLES * SAMPLES);
 }
 
+// Smaller and smaller copies of the picture on top of it, which shrink towards the
+// center and fade.
+vec3 tunnelled(vec3 rgb, vec2 read_at) {
+    if (tunnel_progress == 0.0) {
+        return rgb;
+    }
+    float fade = 0.6 * (1.0 - tunnel_progress);
+    float scale = 1.0 + tunnel_progress;
+    for (int i = 1; i <= TUNNEL_COPIES; i++) {
+        scale *= TUNNEL_SPACING;
+        vec2 copy_at = 0.5 + (read_at - 0.5) * scale;
+        if (all(greaterThanEqual(copy_at, vec2(0.0))) && all(lessThanEqual(copy_at, vec2(1.0)))) {
+            rgb = mix(rgb, pixelated(copy_at), fade);
+        }
+    }
+    return rgb;
+}
+
+// Turns every color once around the color wheel, about the grey axis, so greys and
+// brightness stay the same.
+vec3 hue_spun(vec3 rgb) {
+    if (hue_progress == 0.0) {
+        return rgb;
+    }
+    float angle = TAU * smoothstep(0.0, 1.0, hue_progress);
+    vec3 axis = vec3(0.57735);
+    float c = cos(angle);
+    return clamp(rgb * c + cross(axis, rgb) * sin(angle) + axis * dot(axis, rgb) * (1.0 - c),
+                 0.0, 1.0);
+}
+
 void main() {
-    vec2 read_at = glitched(rippled(shaken(zoomed(mirrored(uv)))));
+    vec2 read_at = sliced(glitched(rippled(shaken(spun(zoomed(kaleidoscoped(mirrored(uv))))))));
     vec2 split = color_split(read_at);
     vec3 rgb = pixelated(read_at);
     if (split != vec2(0.0)) {
         rgb = vec3(pixelated(read_at + split).r, rgb.g, pixelated(read_at - split).b);
     }
+    rgb = tunnelled(rgb, read_at);
+    rgb = hue_spun(rgb);
     rgb *= channels;
     if (black_and_white) {
         rgb = vec3(dot(rgb, BRIGHTNESS_WEIGHTS));
+    }
+    if (vignette_progress > 0.0) {
+        vec2 from_center = (uv - 0.5) * media_shape;
+        float edge = smoothstep(0.3, 1.0, length(from_center) / length(media_shape * 0.5));
+        rgb *= 1.0 - VIGNETTE_DARKNESS * edge * pow(1.0 - vignette_progress, 2.0);
+    }
+    if (invert_progress > 0.0) {
+        rgb = mix(rgb, 1.0 - rgb, pow(1.0 - invert_progress, 2.0));
     }
     if (flash_progress > 0.0) {
         rgb = mix(rgb, vec3(1.0), pow(1.0 - flash_progress, 2.0));

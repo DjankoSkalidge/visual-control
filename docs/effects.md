@@ -86,6 +86,13 @@ Each press plays the animation once, and another press restarts it. Different an
 | Shake | `shake` | Rattles and settles | 0.4 s |
 | Color shockwave | `color_shockwave` | A ring of split color travels outward from the center | 0.5 s |
 | Mirror burst | `mirror_burst` | Folds into a six-sided kaleidoscope, then melts back | 0.4 s |
+| Invert flash | `invert_flash` | Jumps to the negative and fades back | 0.3 s |
+| Strobe slice | `strobe_slice` | Eight bands jump sideways, alternately left and right, and slide back | 0.35 s |
+| Kaleidoscope pop | `kaleidoscope_pop` | Folds into a turning eight-sided kaleidoscope, zoomed in, then unfolds | 0.6 s |
+| Tunnel zoom | `tunnel_zoom` | Smaller copies of the picture appear on top, shrink towards the center and fade | 0.5 s |
+| Vignette pulse | `vignette_pulse` | The edges go dark and recover, leaving the middle alone | 0.4 s |
+| Spin kick | `spin_kick` | Turns about 7 degrees, swings back past the start and settles | 0.4 s |
+| Hue spin | `hue_spin` | Every color goes once around the color wheel. Greys stay grey | 0.5 s |
 | Stutter | `stutter` | Cycles the last 8 frames quickly | 0.5 s |
 
 Every press plays at full strength, however hard the pad is hit.
@@ -94,7 +101,9 @@ Every press plays at full strength, however hard the pad is hit.
 
 **Glitch burst:** the pattern changes several times during a burst and is different on every press.
 
-**Shake:** the picture zooms in slightly while it moves, so its edges never show.
+**Shake** and **spin kick:** the picture zooms in slightly while it moves, so its edges never show.
+
+**Invert flash:** like flash, rapid hits make a strobe.
 
 **Stutter:** the video keeps going unseen during the stutter, then the picture jumps to where it has got to. On a paused video, it returns to the paused frame. It has no effect on still images.
 
@@ -117,17 +126,21 @@ Every effect can run at once, and they're applied in a fixed order. Later steps 
 1. Saturation
 2. RGB shift
 3. Blur
-4. Mirror burst, zoom punch, shake, ripple and glitch burst, which move the picture
+4. Mirror burst, kaleidoscope pop, zoom punch, spin kick, shake, ripple, glitch burst and strobe slice, which move the picture
 5. Color shockwave and glitch burst's color split
 6. Pixelate
-7. Remove red, green and blue
-8. Black and white
-9. Flash
+7. Tunnel zoom
+8. Hue spin
+9. Remove red, green and blue
+10. Black and white
+11. Vignette pulse
+12. Invert flash
+13. Flash
 
 This order has some useful results:
 
 - Pixelate comes after blur and the moving effects, so its blocks stay crisp.
-- Black and white comes after the color effects, so none of them can bring color back.
+- Black and white and removing colors come after the color effects, hue spin included, so none of them can bring color back.
 - Flash comes last, so it's always white, even with black and white on and every color removed. It only covers the picture, not the black bars around it.
 
 Stutter and playback speed aren't in this list, because they change which frame is showing rather than how it's drawn.
