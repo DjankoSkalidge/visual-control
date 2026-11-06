@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14  # Apple Silicon.
+    runs-on: macos-latest  # Always Apple Silicon. Named versions like macos-14 get retired.
     steps:
       - uses: actions/checkout@v4
 
