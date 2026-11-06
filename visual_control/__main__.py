@@ -8,9 +8,11 @@ from .window import MainWindow
 
 
 def main() -> int:
-    # The OpenGL library we use connects through X11. Wayland desktops run X11
-    # apps through XWayland, so this works on both.
-    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
+    # On Linux, the OpenGL library we use connects through X11. Wayland desktops
+    # run X11 apps through XWayland, so this works on both. Macs have no X11, and
+    # Qt's own platform works there.
+    if sys.platform.startswith("linux"):
+        os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
     configure_opengl()
     app = QApplication(sys.argv)
     window = MainWindow()
