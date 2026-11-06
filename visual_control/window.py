@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .audio_file import AudioFileError, AudioFilePlayer, Band, is_audio_file, read_audio_file
+from .audio_file_window import AudioFileDialog
 from .config_window import ControllerConfigDialog
 from .controllers.config import USER_FOLDER, load_all_controllers
 from .effects import REMOVE_CHANNEL_EFFECTS, RGB_SHIFT_EFFECTS, SATURATION_EFFECTS, Effect
@@ -26,7 +28,7 @@ from .midi_file import MidiFileError, MidiFilePlayer, is_midi_file, read_midi_fi
 from .midi_file_window import MidiFileDialog
 from .view import ANIMATIONS, MediaView
 
-PLACEHOLDER_TEXT = "Drop an image, video or MIDI file here"
+PLACEHOLDER_TEXT = "Drop an image, video, audio or MIDI file here"
 ERROR_STYLE = "color: #c0392b;"
 
 
@@ -62,6 +64,9 @@ class MainWindow(QMainWindow):
         self._remove_midi_file_button = QPushButton("Remove MIDI file")
         self._remove_midi_file_button.clicked.connect(self.remove_midi_file)
         self._remove_midi_file_button.hide()  # Until a MIDI file is playing.
+        self._remove_audio_file_button = QPushButton("Remove audio file")
+        self._remove_audio_file_button.clicked.connect(self.remove_audio_file)
+        self._remove_audio_file_button.hide()  # Until an audio file is playing.
         self._fullscreen_button = QPushButton("Fullscreen")
         self._fullscreen_button.clicked.connect(self.toggle_fullscreen)
 
@@ -70,6 +75,7 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self._status, stretch=1)
         controls_layout.addWidget(self._midi_status)
         controls_layout.addWidget(self._remove_midi_file_button)
+        controls_layout.addWidget(self._remove_audio_file_button)
         controls_layout.addWidget(self._configure_button)
         controls_layout.addWidget(self._fullscreen_button)
 
@@ -110,9 +116,12 @@ class MainWindow(QMainWindow):
         }
         self._config_dialog: ControllerConfigDialog | None = None
         self._midi_file_dialog: MidiFileDialog | None = None
-        self._resume_after_midi_file_setup = False
+        self._audio_file_dialog: AudioFileDialog | None = None
+        self._resume_after_file_setup = False
         self._midi_file_player: MidiFilePlayer | None = None
         self._midi_file_effects: dict[int, Effect] = {}
+        self._audio_file_player: AudioFilePlayer | None = None
+        self._audio_file_effects: dict[Band, Effect] = {}
         self._controllers = []
         self._midi_inputs = []
         self._start_midi()
@@ -135,12 +144,16 @@ class MainWindow(QMainWindow):
             self._show_error(" ".join(config_errors))
 
     def open_files(self, paths: list[str]) -> None:
-        """Load the first image or video, and set up the first MIDI file."""
-        media = next((p for p in paths if not is_midi_file(p)), None)
+        """Load the first image or video, and set up the first audio or MIDI file."""
+        media = next((p for p in paths if not is_midi_file(p) and not is_audio_file(p)), None)
         midi_file = next((p for p in paths if is_midi_file(p)), None)
+        audio_file = next((p for p in paths if is_audio_file(p)), None)
         if media is not None:
             self.load(media)
-        if midi_file is not None:
+        # Only one setup panel can be open, so an audio file goes first.
+        if audio_file is not None:
+            self.open_audio_file(audio_file)
+        elif midi_file is not None:
             self.open_midi_file(midi_file)
 
     def load(self, path: str) -> None:
@@ -163,13 +176,7 @@ class MainWindow(QMainWindow):
         except MidiFileError as exc:
             self._show_error(str(exc))  # Any MIDI file already playing keeps playing.
             return
-        # Effects stay off until something triggers them after the panel closes.
-        # Only resume afterwards if this paused it. A paused video stays paused.
-        self._resume_after_midi_file_setup = (
-            not self._view.is_paused() and self._view.toggle_pause() is True
-        )
-        self._update_pause_status()
-        self._view.reset_effects()
+        self._prepare_for_file_setup()
         self._midi_file_dialog = MidiFileDialog(notes, self)
         self._midi_file_dialog.finished.connect(self._on_midi_file_setup_finished)
         self._midi_file_dialog.open()
@@ -185,10 +192,49 @@ class MainWindow(QMainWindow):
             self._midi_file_player.start()
             self._remove_midi_file_button.show()
             self._update_midi_status()
-        if self._resume_after_midi_file_setup and self._view.is_paused():
+        self._finish_file_setup()
+
+    def open_audio_file(self, path: str) -> None:
+        if self._setup_open():
+            return
+        try:
+            analysis = read_audio_file(path)
+        except AudioFileError as exc:
+            self._show_error(str(exc))  # Any audio file already playing keeps playing.
+            return
+        self._prepare_for_file_setup()
+        self._audio_file_dialog = AudioFileDialog(analysis, self)
+        self._audio_file_dialog.finished.connect(self._on_audio_file_setup_finished)
+        self._audio_file_dialog.open()
+
+    def _on_audio_file_setup_finished(self, result: int) -> None:
+        dialog, self._audio_file_dialog = self._audio_file_dialog, None
+        dialog.deleteLater()
+        if result == QDialog.DialogCode.Accepted:
+            self._stop_audio_file()
+            self._audio_file_effects = dialog.assignments()
+            self._audio_file_player = AudioFilePlayer(dialog.analysis, dialog.sensitivities())
+            self._audio_file_player.hit.connect(self._on_audio_file_hit)
+            self._audio_file_player.failed.connect(self._on_audio_file_failed)
+            self._audio_file_player.start()
+            self._remove_audio_file_button.show()
+            self._update_midi_status()
+        self._finish_file_setup()
+
+    def _prepare_for_file_setup(self) -> None:
+        # Effects stay off until something triggers them after the panel closes.
+        # Only resume afterwards if this paused it. A paused video stays paused.
+        self._resume_after_file_setup = (
+            not self._view.is_paused() and self._view.toggle_pause() is True
+        )
+        self._update_pause_status()
+        self._view.reset_effects()
+
+    def _finish_file_setup(self) -> None:
+        if self._resume_after_file_setup and self._view.is_paused():
             self._view.toggle_pause()
             self._update_pause_status()
-        self._resume_after_midi_file_setup = False
+        self._resume_after_file_setup = False
 
     def remove_midi_file(self) -> None:
         # A toggle the file left on would otherwise stay on, with nothing to turn it off.
@@ -203,6 +249,25 @@ class MainWindow(QMainWindow):
             self._midi_file_player.stop()
             self._midi_file_player.deleteLater()
             self._midi_file_player = None
+
+    def remove_audio_file(self) -> None:
+        # A toggle the file left on would otherwise stay on, with nothing to turn it off.
+        self._view.turn_off_toggles(set(self._audio_file_effects.values()))
+        self._stop_audio_file()
+        self._audio_file_effects = {}
+        self._remove_audio_file_button.hide()
+        self._update_midi_status()
+
+    def _stop_audio_file(self) -> None:
+        if self._audio_file_player is not None:
+            self._audio_file_player.stop()
+            self._audio_file_player.deleteLater()
+            self._audio_file_player = None
+
+    def _on_audio_file_failed(self, reason: str) -> None:
+        name = self._audio_file_player.analysis.name
+        self.remove_audio_file()
+        self._show_error(f"Stopped playing {name}: {reason}")
 
     def open_controller_config(self) -> None:
         # Effects stay off until a control is moved after the window closes.
@@ -250,6 +315,8 @@ class MainWindow(QMainWindow):
             midi.stop()
         if self._midi_file_player is not None:
             self._midi_file_player.stop()
+        if self._audio_file_player is not None:
+            self._audio_file_player.stop()
         self._view.stop()
         super().closeEvent(event)
 
@@ -263,8 +330,16 @@ class MainWindow(QMainWindow):
         if effect is not None:
             self._on_effect_changed(effect, 1.0)
 
+    def _on_audio_file_hit(self, band: Band) -> None:
+        effect = self._audio_file_effects.get(band)
+        if effect is not None:
+            self._on_effect_changed(effect, 1.0)
+
     def _setup_open(self) -> bool:
-        return self._config_dialog is not None or self._midi_file_dialog is not None
+        return any(
+            dialog is not None
+            for dialog in (self._config_dialog, self._midi_file_dialog, self._audio_file_dialog)
+        )
 
     def _on_pause_pressed(self, _amount: float) -> None:
         if self._view.toggle_pause() is not None:
@@ -284,6 +359,8 @@ class MainWindow(QMainWindow):
         text = f"Connected: {', '.join(names)}" if names else "No controllers connected"
         if self._midi_file_player is not None:
             text += f" · Playing {self._midi_file_player.part.name}"
+        if self._audio_file_player is not None:
+            text += f" · Playing {self._audio_file_player.analysis.name}"
         self._midi_status.setText(text)
 
     def _on_playback_failed(self, reason: str) -> None:

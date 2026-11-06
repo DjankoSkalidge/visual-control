@@ -8,6 +8,7 @@ from unittest import mock
 
 import numpy as np
 from PIL import Image
+from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtGui import QImage
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
@@ -30,6 +31,17 @@ TEST_CONTROLLERS = tuple(
 )
 
 
+def wait(ms: int) -> None:
+    """Like QTest.qWait, but in a real event loop, as the app runs.
+
+    QTest.qWait can hang for good once a QMediaPlayer has been stopped, so use this
+    in any test that plays an audio file, and anywhere one could have been playing.
+    """
+    loop = QEventLoop()
+    QTimer.singleShot(ms, loop.quit)
+    loop.exec()
+
+
 class GuiTestCase(unittest.TestCase):
     config_errors: list[str] = []
 
@@ -46,6 +58,8 @@ class GuiTestCase(unittest.TestCase):
         for patcher in (
             mock.patch("visual_control.window.load_all_controllers", self._load_test_controllers),
             mock.patch("visual_control.window.USER_FOLDER", self.user_folder),
+            # Tests must never play sound through the speakers.
+            mock.patch("visual_control.audio_file.MUTED", True),
         ):
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -81,4 +95,4 @@ class GuiTestCase(unittest.TestCase):
         # garbage collector, this could happen on a decoder thread and abort.
         self.window.close()
         self.window.deleteLater()
-        QTest.qWait(10)
+        wait(10)

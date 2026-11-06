@@ -25,7 +25,7 @@ To open a file straight away, add its path to either command.
 
 ## Play something
 
-1. Drag an image or video onto the window. If you drop several, only the first one opens. You can also drop a MIDI file, alone or with the image or video, to trigger effects from its notes. See [MIDI files](midi-files.md).
+1. Drag an image or video onto the window. If you drop several, only the first one opens. You can also drop a MIDI file, alone or with the image or video, to trigger effects from its notes. See [MIDI files](midi-files.md). An audio file, such as an mp3, plays the song and triggers effects from its beat. See [Audio files](audio-files.md).
 2. Plug in your controller. The status bar shows `Connected:` and the controller's name. The app checks for controllers every 2 seconds, so you can plug one in at any time.
 3. Move a control. See [Effects](effects.md) for what's available.
 

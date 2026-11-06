@@ -74,6 +74,8 @@ The AppImage is a snapshot, so rebuild it to include code changes. The build dow
 | `visual_control/config_window.py` | The setup window |
 | `visual_control/midi_file.py` | Reading a MIDI file's notes, and playing one channel on a loop |
 | `visual_control/midi_file_window.py` | The panel for choosing a channel and assigning effects to its notes |
+| `visual_control/audio_file.py` | Finding the hits in an audio file, and playing it with its hits in sync |
+| `visual_control/audio_file_window.py` | The panel for assigning effects and sensitivity to each frequency band |
 | `visual_control/controllers/` | Controller file loading and the built-in setups |
 | `reference/controller_maps/` | The older Python maps of each controller's controls, kept for reference |
 
@@ -108,6 +110,18 @@ MidiFilePlayer timer -> note_played signal -> MainWindow._on_midi_file_note -> M
 ```
 
 The player waits on a single-shot timer for the next note. Each note's time counts from the start of the current loop, rather than from the previous note, so timer delays never build up into drift.
+
+An audio file is analysed before it plays, and then follows the sound:
+
+```text
+read_audio_file: decode to mono -> spectra every 12 ms -> rise in loudness per band
+AudioFilePlayer: QMediaPlayer position -> AudioClock -> HitSchedule (every 5 ms)
+               -> hit signal -> MainWindow._on_audio_file_hit -> MediaView
+```
+
+- **Hits are picked per sensitivity** from the stored loudness rises, in a few milliseconds, so the panel's counts update live.
+- **The audio is the clock.** Qt reports the playing position only every 50 ms or so, so `AudioClock` fills in between from the system clock, and gently corrects towards each report. A report far off the estimate, like a loop, is followed at once.
+- **Tests** mute the sound by patching `audio_file.MUTED`, which `GuiTestCase` does. Use `tests.gui.wait` rather than `QTest.qWait` in them: `qWait` can hang for good once a `QMediaPlayer` has stopped.
 
 ## Add an effect
 
