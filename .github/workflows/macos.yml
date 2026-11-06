@@ -1,0 +1,72 @@
+# Builds the macOS app for Apple Silicon. Start it from the Actions tab on GitHub
+# ("macOS build" -> "Run workflow"), or with: gh workflow run macos.yml
+name: macOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish the .dmg on the macos-latest release, for a download link that needs no GitHub account
+        type: boolean
+        default: true
+
+permissions:
+  contents: write  # To publish the release.
+
+jobs:
+  build:
+    runs-on: macos-14  # Apple Silicon.
+    steps:
+      - uses: actions/checkout@v4
+
+      # 3.13, because every pinned package has a ready-made Apple Silicon build for it.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+
+      - name: Install ffmpeg, which some tests use to make test videos
+        run: brew install ffmpeg
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+
+      # Tests that open a window skip themselves, because there's no DISPLAY.
+      - name: Test
+        run: python -m unittest discover -s tests -t . -v
+
+      - name: Build
+        run: bash packaging/build-macos.sh
+
+      # Catches a module missing from the bundle, which would otherwise only
+      # show up on someone's Mac. Build servers have no graphics card, so
+      # OpenGL errors there are expected and don't count.
+      - name: Check the app starts
+        run: |
+          "build/macos/dist/Visual Control.app/Contents/MacOS/Visual Control" > app.log 2>&1 &
+          pid=$!
+          sleep 15
+          kill "$pid" 2>/dev/null || true
+          cat app.log
+          if grep -E "Traceback|ModuleNotFoundError|ImportError" app.log; then exit 1; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VisualControl-macOS-arm64
+          path: dist/VisualControl-macOS-arm64.dmg
+
+      - name: Publish release
+        if: inputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete macos-latest --yes --cleanup-tag || true
+          gh release create macos-latest dist/VisualControl-macOS-arm64.dmg \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "macOS build (Apple Silicon)" \
+            --notes "Unsigned build of ${GITHUB_SHA::7} for Apple Silicon Macs with macOS 14 or newer. See docs/getting-started.md for opening it the first time."

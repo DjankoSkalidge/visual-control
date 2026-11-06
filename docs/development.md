@@ -61,6 +61,18 @@ make clean       # Removes everything the build created
 
 The AppImage is a snapshot, so rebuild it to include code changes. The build downloads `appimagetool`, and checks it against a fixed SHA-256 hash.
 
+### The macOS build
+
+A Mac app can only be built on a Mac, so GitHub builds it. On GitHub, open **Actions > macOS build > Run workflow**, or run:
+
+```sh
+gh workflow run macos.yml
+```
+
+It runs the tests on an Apple Silicon Mac (the ones that open a window skip themselves), builds the app with `packaging/build-macos.sh`, checks that it starts, and publishes `VisualControl-macOS-arm64.dmg` on the `macos-latest` release, replacing the previous build. It takes about 10 minutes. Untick **release** to only keep the file on the run's page instead.
+
+The app is ad-hoc signed, which is free but means macOS asks before the first launch. See [On a Mac](getting-started.md#on-a-mac).
+
 ## How the code is organized
 
 | File | Responsibility |

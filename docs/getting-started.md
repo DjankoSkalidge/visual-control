@@ -3,6 +3,7 @@
 ## Requirements
 
 - Linux with an X11 or Wayland desktop. It's developed on Ubuntu 24.04. On Wayland it runs through XWayland.
+  There's also an untested build for Macs with Apple Silicon and macOS 14 or newer. See [On a Mac](#on-a-mac).
 - A graphics driver that supports OpenGL 3.3.
 - A MIDI controller. The app runs without one, but then nothing can control the effects.
 
@@ -22,6 +23,24 @@ make appimage
 ```
 
 To open a file straight away, add its path to either command.
+
+### On a Mac
+
+The Mac build is made on GitHub, because it can't be made on Linux. It's untested on real Macs, so expect rough edges, especially with graphics.
+
+1. Download `VisualControl-macOS-arm64.dmg` from the [macos-latest release](https://github.com/DjankoSkalidge/visual-control/releases/tag/macos-latest).
+2. Open it, and drag **Visual Control** onto **Applications**.
+3. Open it from Applications. The app isn't signed with a paid Apple Developer account, so the first time, macOS refuses with a message that it can't check the app:
+   - **macOS 14:** right-click the app, choose **Open**, then **Open** again.
+   - **macOS 15 or newer:** click **Done**, then go to **System Settings > Privacy & Security**, scroll down, and click **Open Anyway** next to the message about Visual Control.
+
+   After that, it opens normally.
+
+If macOS says the app is damaged, run this in Terminal, then open it again:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Visual Control.app"
+```
 
 ## Play something
 
