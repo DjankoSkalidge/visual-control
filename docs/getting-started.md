@@ -5,7 +5,7 @@
 - Linux with an X11 or Wayland desktop. It's developed on Ubuntu 24.04. On Wayland it runs through XWayland.
   There's also an untested build for Macs with Apple Silicon and macOS 14 or newer. See [On a Mac](#on-a-mac).
 - A graphics driver that supports OpenGL 3.3.
-- A MIDI controller. The app runs without one, but then nothing can control the effects.
+- A MIDI controller. The app runs without one, but then only the [keyboard](keyboard.md) and files can trigger effects, and only press effects.
 
 ## Run the app
 
@@ -48,7 +48,7 @@ xattr -dr com.apple.quarantine "/Applications/Visual Control.app"
 2. Plug in your controller. The status bar shows `Connected:` and the controller's name. The app checks for controllers every 2 seconds, so you can plug one in at any time.
 3. Move a control. See [Effects](effects.md) for what's available.
 
-To use your own choice of controls, or a controller the app doesn't know, see [Controllers](controllers.md).
+To use your own choice of controls, or a controller the app doesn't know, see [Controllers](controllers.md). To trigger press effects from the computer's keyboard, see [Keyboard](keyboard.md).
 
 ## Going fullscreen
 

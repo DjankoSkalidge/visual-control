@@ -84,6 +84,8 @@ The app is ad-hoc signed, which is free but means macOS asks before the first la
 | `visual_control/midi.py` | MIDI input and capture for the setup window |
 | `visual_control/effects.py` | The list of effects, independent of any controller |
 | `visual_control/config_window.py` | The setup window |
+| `visual_control/keyboard.py` | Loading and saving the keyboard setup |
+| `visual_control/keyboard_window.py` | The window for assigning keys to press effects |
 | `visual_control/midi_file.py` | Reading a MIDI file's notes, and playing one channel on a loop |
 | `visual_control/midi_file_window.py` | The panel for choosing a channel and assigning effects to its notes |
 | `visual_control/audio_file.py` | Finding the hits in an audio file, and playing it with its hits in sync |

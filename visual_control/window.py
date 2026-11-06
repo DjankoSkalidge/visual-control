@@ -3,9 +3,10 @@ from __future__ import annotations
 from functools import partial
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -20,8 +21,10 @@ from PySide6.QtWidgets import (
 from .audio_file import AudioFileError, AudioFilePlayer, Band, is_audio_file, read_audio_file
 from .audio_file_window import AudioFileDialog
 from .config_window import ControllerConfigDialog
-from .controllers.config import USER_FOLDER, load_all_controllers
+from .controllers.config import USER_FOLDER, ConfigError, load_all_controllers
 from .effects import REMOVE_CHANNEL_EFFECTS, RGB_SHIFT_EFFECTS, SATURATION_EFFECTS, Effect
+from .keyboard import SHORTCUT_MODIFIERS, keyboard_file, load_keyboard
+from .keyboard_window import KeyboardConfigDialog
 from .media import MediaError, open_media
 from .midi import MidiInput
 from .midi_file import MidiFileError, MidiFilePlayer, is_midi_file, read_midi_file
@@ -61,6 +64,8 @@ class MainWindow(QMainWindow):
         self._midi_status = QLabel()
         self._configure_button = QPushButton("Configure new controller")
         self._configure_button.clicked.connect(self.open_controller_config)
+        self._keyboard_button = QPushButton("Configure keyboard")
+        self._keyboard_button.clicked.connect(self.open_keyboard_config)
         self._remove_midi_file_button = QPushButton("Remove MIDI file")
         self._remove_midi_file_button.clicked.connect(self.remove_midi_file)
         self._remove_midi_file_button.hide()  # Until a MIDI file is playing.
@@ -76,7 +81,11 @@ class MainWindow(QMainWindow):
         controls_layout.addWidget(self._midi_status)
         controls_layout.addWidget(self._remove_midi_file_button)
         controls_layout.addWidget(self._remove_audio_file_button)
-        controls_layout.addWidget(self._configure_button)
+        configure_buttons = QVBoxLayout()
+        configure_buttons.setSpacing(2)
+        configure_buttons.addWidget(self._configure_button)
+        configure_buttons.addWidget(self._keyboard_button)
+        controls_layout.addLayout(configure_buttons)
         controls_layout.addWidget(self._fullscreen_button)
 
         central = QWidget()
@@ -115,6 +124,8 @@ class MainWindow(QMainWindow):
             },
         }
         self._config_dialog: ControllerConfigDialog | None = None
+        self._keyboard_dialog: KeyboardConfigDialog | None = None
+        self._keyboard_effects: dict[int, Effect] = {}  # Qt key -> effect.
         self._midi_file_dialog: MidiFileDialog | None = None
         self._audio_file_dialog: AudioFileDialog | None = None
         self._resume_after_file_setup = False
@@ -125,6 +136,9 @@ class MainWindow(QMainWindow):
         self._controllers = []
         self._midi_inputs = []
         self._start_midi()
+        self._load_keyboard()
+        # Watching the whole app catches keys before a focused button can use them.
+        QApplication.instance().installEventFilter(self)
 
     def _start_midi(self) -> None:
         for midi in self._midi_inputs:
@@ -282,6 +296,42 @@ class MainWindow(QMainWindow):
         if result == QDialog.DialogCode.Accepted:
             self._start_midi()
 
+    def open_keyboard_config(self) -> None:
+        # Effects stay off until something triggers them after the window closes.
+        self._view.reset_effects()
+        effects = {effect: key for key, effect in self._keyboard_effects.items()}
+        self._keyboard_dialog = KeyboardConfigDialog(effects, keyboard_file(USER_FOLDER), self)
+        self._keyboard_dialog.finished.connect(self._on_keyboard_config_finished)
+        self._keyboard_dialog.open()
+
+    def _on_keyboard_config_finished(self, result: int) -> None:
+        dialog, self._keyboard_dialog = self._keyboard_dialog, None
+        dialog.deleteLater()
+        if result == QDialog.DialogCode.Accepted:
+            self._keyboard_effects = {key: effect for effect, key in dialog.assignments().items()}
+
+    def _load_keyboard(self) -> None:
+        try:
+            effects = load_keyboard(keyboard_file(USER_FOLDER))
+        except ConfigError as exc:
+            self._show_error(str(exc))
+            return
+        self._keyboard_effects = {key: effect for effect, key in effects.items()}
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if (
+            event.type() == QEvent.Type.KeyPress
+            and watched.isWidgetType()
+            and watched.window() is self
+        ):
+            effect = self._keyboard_effects.get(event.key())
+            if effect is not None and not event.modifiers() & SHORTCUT_MODIFIERS:
+                # Holding a key down repeats it, but it's still one press.
+                if not event.isAutoRepeat():
+                    self._on_effect_changed(effect, 1.0)
+                return True
+        return False
+
     def toggle_fullscreen(self) -> None:
         # Toggling the flag keeps a maximized window maximized on the way back.
         self.setWindowState(self.windowState() ^ Qt.WindowState.WindowFullScreen)
@@ -311,6 +361,7 @@ class MainWindow(QMainWindow):
             self.open_files(paths)
 
     def closeEvent(self, event) -> None:
+        QApplication.instance().removeEventFilter(self)
         for midi in self._midi_inputs:
             midi.stop()
         if self._midi_file_player is not None:
@@ -338,7 +389,12 @@ class MainWindow(QMainWindow):
     def _setup_open(self) -> bool:
         return any(
             dialog is not None
-            for dialog in (self._config_dialog, self._midi_file_dialog, self._audio_file_dialog)
+            for dialog in (
+                self._config_dialog,
+                self._keyboard_dialog,
+                self._midi_file_dialog,
+                self._audio_file_dialog,
+            )
         )
 
     def _on_pause_pressed(self, _amount: float) -> None:
